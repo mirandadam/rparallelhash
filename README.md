@@ -2,6 +2,8 @@
 
 ParallelHash is a command-line application written in Rust that efficiently calculates cryptographic hashes of files using multiple algorithms in parallel.
 
+*THIS IS UNTESTED - there are some suspected serious architecture issues - like threads updating the hash algorithms out of order or threads serializing the calculation of the hashes (updating one algorithm serially after the other).*
+
 ## Features
 
 - Supports multiple hash algorithms: MD5, SHA1, SHA256, and SHA512
