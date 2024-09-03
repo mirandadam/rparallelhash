@@ -10,6 +10,7 @@ use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use walkdir::WalkDir;
 
 const CHUNK_SIZE: usize = 1024 * 1024; // 1 MB chunks
 const CHANNEL_SIZE: usize = 10; // 10 chunks per channel
@@ -76,14 +77,32 @@ fn main() -> Result<()> {
     println!("{}\t{}", args.algorithms.join("\t"), "path");
 
     for path in &args.paths {
-        process_file(path, &algorithms)?;
+        if let Err(e) = process_path(path, &algorithms) {
+            eprintln!("Error processing path {}: {}", path.display(), e);
+        }
     }
 
     Ok(())
 }
 
+fn process_path(path: &Path, algorithms: &[HashAlgorithm]) -> Result<()> {
+    if path.is_dir() {
+        for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.is_file() {
+                if let Err(e) = process_file(path, algorithms) {
+                    eprintln!("Error processing file {}: {}", path.display(), e);
+                }
+            }
+        }
+        Ok(())
+    } else {
+        process_file(path, algorithms)
+    }
+}
+
 fn process_file(path: &Path, algorithms: &[HashAlgorithm]) -> Result<()> {
-    let file = File::open(path)?;
+    let file = File::open(path).context(format!("Failed to open file: {}", path.display()))?;
     let mut reader = BufReader::with_capacity(CHUNK_SIZE * 2, file);
     let mut buffer = vec![0; CHUNK_SIZE];
 
