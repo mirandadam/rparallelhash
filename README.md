@@ -2,15 +2,14 @@
 
 ParallelHash is a command-line application written in Rust that efficiently calculates cryptographic hashes of files using multiple algorithms in parallel.
 
-*THIS IS UNTESTED - there are some suspected serious architecture issues - like threads updating the hash algorithms out of order or threads serializing the calculation of the hashes (updating one algorithm serially after the other).*
-
 ## Features
 
 - Supports multiple hash algorithms: MD5, SHA1, SHA256, and SHA512
-- Processes files sequentially, but calculates hashes in parallel for each file
+- Processes files sequentially, one at a time
+- Calculates hashes for different algorithms in parallel for each chunk of data
 - Streams file content, allowing efficient processing of large files without loading them entirely into memory
 - Can handle individual files and directories (including subdirectories)
-- Optimized for scenarios where file seeks are expensive (e.g., network filesystems)
+- Optimized for both I/O-bound and CPU-bound scenarios
 - Outputs results in a tabular format
 
 ## Usage
@@ -33,13 +32,15 @@ b1946ac92492d2347c6235b4d2611184    5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af
 
 ## Design Considerations
 
-ParallelHash is designed to efficiently handle a large number of files, including very large files, in scenarios where file seeks are expensive. The application achieves this by:
+ParallelHash is designed to efficiently handle files of various sizes, optimizing for both I/O-bound and CPU-bound scenarios. The application achieves this by:
 
-1. Processing files sequentially to minimize the impact of expensive file seeks.
-2. Streaming file content in chunks, allowing the processing of files larger than available memory.
-3. Calculating hashes for multiple algorithms in parallel for each file, maximizing CPU utilization.
+1. Processing files sequentially, one at a time, to minimize the impact of expensive file seeks.
+2. Streaming file content in chunks using a buffered reader, allowing the processing of files larger than available memory.
+3. Calculating hashes for multiple algorithms in parallel for each chunk of data, maximizing CPU utilization.
+4. Using separate threads and bounded channels for each hashing algorithm, allowing for independent processing speeds.
+5. Implementing a backpressure mechanism to naturally balance between I/O and CPU operations.
 
-This design is particularly beneficial in IO-bound situations, such as when working with network filesystems or slow storage devices. By reading each file only once and performing all hash calculations simultaneously, ParallelHash minimizes IO operations and maximizes throughput.
+This design is particularly beneficial in various situations, such as when working with network filesystems, slow storage devices, or when processing computationally expensive hash algorithms. By reading each file only once and performing hash calculations in parallel, ParallelHash optimizes both I/O operations and CPU utilization.
 
 ## Building
 
