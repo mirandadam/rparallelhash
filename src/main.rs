@@ -67,14 +67,19 @@ struct Args {
 
     #[arg(required = true)]
     paths: Vec<PathBuf>,
+
+    #[arg(short, long, default_value_t = false)]
+    show_headers: bool,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
     let algorithms = validate_algorithms(&args.algorithms)?;
 
-    // Print header
-    println!("{}\t{}", args.algorithms.join("\t"), "path");
+    // Conditionally print header
+    if args.show_headers {
+        println!("{}\t{}", args.algorithms.join("\t"), "path");
+    }
 
     for path in &args.paths {
         if let Err(e) = process_path(path, &algorithms) {
