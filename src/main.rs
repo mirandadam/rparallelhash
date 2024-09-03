@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use crossbeam::channel::{bounded, Receiver};
+use crossbeam::channel::{bounded, Receiver, RecvError};
 use digest::Digest;
 use md5::Md5;
 use sha1::Sha1;
@@ -30,7 +30,7 @@ impl HashAlgorithm {
             "sha1" => Ok(HashAlgorithm::Sha1(Sha1::new())),
             "sha256" => Ok(HashAlgorithm::Sha256(Sha256::new())),
             "sha512" => Ok(HashAlgorithm::Sha512(Sha512::new())),
-            _ => Err(anyhow::anyhow!("Unsupported algorithm: {}", algo)),
+            _ => Err(anyhow!("Unsupported algorithm: {}", algo)),
         }
     }
 
@@ -87,12 +87,17 @@ fn main() -> Result<()> {
 
 fn process_path(path: &Path, algorithms: &[HashAlgorithm]) -> Result<()> {
     if path.is_dir() {
-        for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
-            let path = entry.path();
-            if path.is_file() {
-                if let Err(e) = process_file(path, algorithms) {
-                    eprintln!("Error processing file {}: {}", path.display(), e);
+        for entry in WalkDir::new(path) {
+            match entry {
+                Ok(entry) => {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Err(e) = process_file(path, algorithms) {
+                            eprintln!("Error processing file {}: {}", path.display(), e);
+                        }
+                    }
                 }
+                Err(e) => eprintln!("Error accessing entry: {}", e),
             }
         }
         Ok(())
@@ -146,11 +151,15 @@ fn process_file(path: &Path, algorithms: &[HashAlgorithm]) -> Result<()> {
 
     // Wait for all workers to finish
     for handle in handles {
-        handle.join().expect("Hash worker thread panicked")?;
+        handle
+            .join()
+            .map_err(|e| anyhow!("Hash worker thread panicked: {:?}", e))??;
     }
 
     // Print results
-    let results = results.lock().unwrap();
+    let results = results
+        .lock()
+        .map_err(|e| anyhow!("Failed to lock results: {:?}", e))?;
     let hashes = results
         .iter()
         .map(|r| hex::encode(r))
@@ -167,16 +176,26 @@ fn hash_worker(
     receiver: Receiver<FileChunk>,
     results: Arc<Mutex<Vec<Vec<u8>>>>,
 ) -> Result<()> {
-    while let Ok(chunk) = receiver.recv() {
-        algo.update(&chunk.data);
-        if chunk.is_last {
-            let hash = algo.finalize_reset();
-            let mut results = results.lock().unwrap();
-            if results.len() <= index {
-                results.resize(index + 1, Vec::new());
+    loop {
+        match receiver.recv() {
+            Ok(chunk) => {
+                algo.update(&chunk.data);
+                if chunk.is_last {
+                    let hash = algo.finalize_reset();
+                    let mut results = results
+                        .lock()
+                        .map_err(|e| anyhow!("Failed to lock results: {:?}", e))?;
+                    if results.len() <= index {
+                        results.resize(index + 1, Vec::new());
+                    }
+                    results[index] = hash;
+                    break;
+                }
             }
-            results[index] = hash;
-            break;
+            Err(RecvError) => {
+                // Channel is disconnected, exit the loop
+                break;
+            }
         }
     }
     Ok(())
