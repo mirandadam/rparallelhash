@@ -12,9 +12,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use walkdir::WalkDir;
 
-const CHUNK_SIZE: usize = 1024 * 1024; // 1 MB chunks
-const CHANNEL_SIZE: usize = 10; // 10 chunks per channel
-
 #[derive(Clone, Debug)]
 enum HashAlgorithm {
     Md5(Md5),
@@ -79,6 +76,12 @@ struct Args {
 
     #[arg(long, default_value_t = true)]
     follow_symlinks: bool,
+
+    #[arg(long, default_value_t = 10)]
+    channel_size: usize,
+
+    #[arg(long, default_value_t = 1024 * 1024)]
+    chunk_size: usize,
 }
 
 #[derive(Debug)]
@@ -104,7 +107,13 @@ fn main() -> Result<()> {
     let algorithms = validate_algorithms(&args.algorithms)?;
 
     if let Some(check_file) = args.check {
-        verify_checksums(&check_file, &algorithms, args.show_headers)?;
+        verify_checksums(
+            &check_file,
+            &algorithms,
+            args.show_headers,
+            args.channel_size,
+            args.chunk_size,
+        )?;
     } else {
         compute_hashes(
             &args.paths,
@@ -112,6 +121,8 @@ fn main() -> Result<()> {
             args.show_headers,
             args.continue_on_error,
             args.follow_symlinks,
+            args.channel_size,
+            args.chunk_size,
         )?;
     }
 
@@ -124,13 +135,22 @@ fn compute_hashes(
     show_headers: bool,
     continue_on_error: bool,
     follow_symlinks: bool,
+    channel_size: usize,
+    chunk_size: usize,
 ) -> Result<()> {
     if show_headers {
         println!("{}\t{}", algorithms.len(), "path");
     }
 
     for path in paths {
-        if let Err(e) = process_path(path, algorithms, continue_on_error, follow_symlinks) {
+        if let Err(e) = process_path(
+            path,
+            algorithms,
+            continue_on_error,
+            follow_symlinks,
+            channel_size,
+            chunk_size,
+        ) {
             eprintln!("Error processing path {}: {}", path.display(), e);
             if !continue_on_error {
                 return Err(e);
@@ -145,6 +165,8 @@ fn verify_checksums(
     check_file: &Path,
     algorithms: &[HashAlgorithm],
     show_headers: bool,
+    channel_size: usize,
+    chunk_size: usize,
 ) -> Result<()> {
     let entries = parse_checksum_file(check_file, algorithms)?;
 
@@ -160,7 +182,7 @@ fn verify_checksums(
     }
 
     for entry in entries {
-        match compute_file_hashes(&entry.path, algorithms) {
+        match compute_file_hashes(&entry.path, algorithms, channel_size, chunk_size) {
             Ok(computed_hashes) => {
                 let result = entry
                     .hashes
@@ -220,6 +242,8 @@ fn process_path(
     algorithms: &[HashAlgorithm],
     continue_on_error: bool,
     follow_symlinks: bool,
+    channel_size: usize,
+    chunk_size: usize,
 ) -> Result<()> {
     if path.is_symlink() && !follow_symlinks {
         println!(
@@ -236,7 +260,7 @@ fn process_path(
                 Ok(entry) => {
                     let path = entry.path();
                     if path.is_file() {
-                        if let Err(e) = process_file(path, algorithms) {
+                        if let Err(e) = process_file(path, algorithms, channel_size, chunk_size) {
                             eprintln!("Error processing file {}: {}", path.display(), e);
                             if !continue_on_error {
                                 return Err(anyhow!("Failed to process file: {}", path.display()));
@@ -254,12 +278,17 @@ fn process_path(
         }
         Ok(())
     } else {
-        process_file(path, algorithms)
+        process_file(path, algorithms, channel_size, chunk_size)
     }
 }
 
-fn process_file(path: &Path, algorithms: &[HashAlgorithm]) -> Result<()> {
-    match compute_file_hashes(path, algorithms) {
+fn process_file(
+    path: &Path,
+    algorithms: &[HashAlgorithm],
+    channel_size: usize,
+    chunk_size: usize,
+) -> Result<()> {
+    match compute_file_hashes(path, algorithms, channel_size, chunk_size) {
         Ok(hashes) => {
             println!("{}\t{}", hashes.join("\t"), path.display());
             Ok(())
@@ -280,6 +309,8 @@ fn process_file(path: &Path, algorithms: &[HashAlgorithm]) -> Result<()> {
 fn compute_file_hashes(
     path: &Path,
     algorithms: &[HashAlgorithm],
+    channel_size: usize,
+    chunk_size: usize,
 ) -> Result<Vec<String>, HashError> {
     let file = File::open(path).map_err(|e| {
         if e.kind() == io::ErrorKind::NotFound {
@@ -289,11 +320,11 @@ fn compute_file_hashes(
         }
     })?;
 
-    let mut reader = BufReader::with_capacity(CHUNK_SIZE * 2, file);
-    let mut buffer = vec![0; CHUNK_SIZE];
+    let mut reader = BufReader::with_capacity(chunk_size * 2, file);
+    let mut buffer = vec![0; chunk_size];
 
     let (senders, receivers): (Vec<Sender<FileChunk>>, Vec<Receiver<FileChunk>>) =
-        algorithms.iter().map(|_| bounded(CHANNEL_SIZE)).unzip();
+        algorithms.iter().map(|_| bounded(channel_size)).unzip();
 
     let results = Arc::new(Mutex::new(Vec::new()));
 
@@ -315,7 +346,7 @@ fn compute_file_hashes(
         if bytes_read == 0 {
             break;
         }
-        let is_last = bytes_read < CHUNK_SIZE;
+        let is_last = bytes_read < chunk_size;
         let chunk = FileChunk {
             data: buffer[..bytes_read].to_vec(),
             is_last,

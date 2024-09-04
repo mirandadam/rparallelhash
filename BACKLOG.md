@@ -8,6 +8,6 @@
 
 3. Performance Monitoring: Consider adding optional performance metrics (e.g., time taken, throughput) to help users understand the benefits of the parallel approach in their specific use cases.
 
-4. Configuration: The `CHUNK_SIZE` and `QUEUE_SIZE` constants are hardcoded. You might want to make these configurable via command-line arguments to allow users to optimize for their specific hardware and use cases.
+4. Documentation: While the README now provides a good overview, it might be helpful to add inline documentation (comments) to the `main.rs` file, especially for the `Producer` and `consumer` functions, to explain their roles in the streaming and parallel processing approach.
 
-5. Documentation: While the README now provides a good overview, it might be helpful to add inline documentation (comments) to the `main.rs` file, especially for the `Producer` and `consumer` functions, to explain their roles in the streaming and parallel processing approach.
+5. Benchmarking: Develop a set of benchmarks to measure the performance impact of different channel and chunk sizes across various file types and sizes. This could help provide guidance on optimal settings for different use cases.
