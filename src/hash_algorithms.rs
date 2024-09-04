@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use blake3::Hasher as Blake3;
 use digest::Digest;
 use md5::Md5;
 use sha1::Sha1;
@@ -15,6 +16,7 @@ pub enum HashAlgorithm {
     Sha3_256(Sha3_256),
     Sha3_384(Sha3_384),
     Sha3_512(Sha3_512),
+    Blake3(Blake3),
 }
 
 impl HashAlgorithm {
@@ -22,12 +24,13 @@ impl HashAlgorithm {
         match algo.to_lowercase().as_str() {
             "md5" => Ok(HashAlgorithm::Md5(Md5::new())),
             "sha1" => Ok(HashAlgorithm::Sha1(Sha1::new())),
-            "sha256" => Ok(HashAlgorithm::Sha256(Sha256::new())),
-            "sha384" => Ok(HashAlgorithm::Sha384(Sha384::new())),
-            "sha512" => Ok(HashAlgorithm::Sha512(Sha512::new())),
+            "sha256" | "sha2-256" => Ok(HashAlgorithm::Sha256(Sha256::new())),
+            "sha384" | "sha2-384" => Ok(HashAlgorithm::Sha384(Sha384::new())),
+            "sha512" | "sha2-512" => Ok(HashAlgorithm::Sha512(Sha512::new())),
             "sha3-256" => Ok(HashAlgorithm::Sha3_256(Sha3_256::new())),
             "sha3-384" => Ok(HashAlgorithm::Sha3_384(Sha3_384::new())),
             "sha3-512" => Ok(HashAlgorithm::Sha3_512(Sha3_512::new())),
+            "blake3" => Ok(HashAlgorithm::Blake3(Blake3::new())),
             _ => Err(anyhow!("Unsupported algorithm: {}", algo)),
         }
     }
@@ -42,6 +45,9 @@ impl HashAlgorithm {
             HashAlgorithm::Sha3_256(h) => h.update(data),
             HashAlgorithm::Sha3_384(h) => h.update(data),
             HashAlgorithm::Sha3_512(h) => h.update(data),
+            HashAlgorithm::Blake3(h) => {
+                h.update_rayon(data);
+            }
         }
     }
 
@@ -55,6 +61,11 @@ impl HashAlgorithm {
             HashAlgorithm::Sha3_256(h) => h.finalize_reset().to_vec(),
             HashAlgorithm::Sha3_384(h) => h.finalize_reset().to_vec(),
             HashAlgorithm::Sha3_512(h) => h.finalize_reset().to_vec(),
+            HashAlgorithm::Blake3(h) => {
+                let result = h.finalize().as_bytes().to_vec();
+                *h = Blake3::new();
+                result
+            }
         }
     }
 }

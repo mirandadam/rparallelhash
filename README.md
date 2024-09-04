@@ -4,7 +4,7 @@ ParallelHash is a command-line application written in Rust that efficiently calc
 
 ## Features
 
-- Supports multiple hash algorithms: MD5, SHA1, SHA256, SHA384, SHA512, SHA3-256, SHA3-384, and SHA3-512
+- Supports multiple hash algorithms: MD5, SHA1, SHA256 (SHA2-256), SHA384 (SHA2-384), SHA512 (SHA2-512), SHA3-256, SHA3-384, SHA3-512, and BLAKE3
 - Processes files sequentially, one at a time
 - Calculates hashes for different algorithms in parallel for each chunk of data
 - Streams file content, allowing efficient processing of large files without loading them entirely into memory
@@ -18,7 +18,7 @@ ParallelHash is a command-line application written in Rust that efficiently calc
 parallelhash [OPTIONS] -a <algorithms> <paths>...
 ```
 
-- `-a, --algorithms`: Comma-separated list of hash algorithms to use (md5, sha1, sha256, sha384, sha512, sha3-256, sha3-384, sha3-512)
+- `-a, --algorithms`: Comma-separated list of hash algorithms to use (md5, sha1, sha256, sha384, sha512, sha3-256, sha3-384, sha3-512, blake3)
 - `<paths>`: One or more file or directory paths to process
 - `--channel-size <SIZE>`: Size of the channel queue (default: 10)
 - `--chunk-size <SIZE>`: Size of each chunk in bytes (default: 1048576, which is 1 MB)
@@ -27,11 +27,13 @@ parallelhash [OPTIONS] -a <algorithms> <paths>...
 Example:
 
 ```bash
-$ parallelhash -a md5,sha256,sha3-512 --channel-size 20 --chunk-size 2097152 --no-follow-symlinks file1.txt folder/
-md5     sha256  sha3-512        path
-d41d8cd98f00b204e9800998ecf8427e    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855    a69f73cca23a9ac5c8b567dc185a756e97c982164fe25859e0d1dcc1475c80a615b2123af1f5f94c11e3e9402c3ac558f500199d95b6d3e301758586281dcd26    file1.txt
-b1946ac92492d2347c6235b4d2611184    5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03    b751850b1a57168a5693cd924b6b096e08f621827444f70d884f5d0240d2712e10e116e9192af3c91a7ec57647e3934057340b4cf408d5a56592f8274eec53f0    folder/file2.txt
+$ parallelhash -a md5,sha256,blake3 --channel-size 20 --chunk-size 2097152 --no-follow-symlinks file1.txt folder/
+md5     sha256  blake3  path
+d41d8cd98f00b204e9800998ecf8427e    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855    af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262    file1.txt
+b1946ac92492d2347c6235b4d2611184    5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03    256c83b297114d201b30179f3f0ef0cace9783622da5974326b436178aeef610    folder/file2.txt
 ```
+
+Note: SHA256, SHA384, and SHA512 can also be referred to as SHA2-256, SHA2-384, and SHA2-512 respectively.
 
 ## Design Considerations
 

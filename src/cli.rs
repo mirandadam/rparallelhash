@@ -13,8 +13,8 @@ pub struct Args {
         short,
         long,
         value_delimiter = ',',
-        help = "Comma-separated list of hash algorithms to use (md5, sha1, sha256, sha384, sha512, sha3-256, sha3-384, sha3-512)",
-        long_help = "Specify a comma-separated list of hash algorithms to use. Supported algorithms are md5, sha1, sha256, sha384, sha512, sha3-256, sha3-384, and sha3-512. Example: -a md5,sha256,sha3-512"
+        help = "Comma-separated list of hash algorithms to use (md5, sha1, sha256, sha384, sha512, sha3-256, sha3-384, sha3-512, blake3)",
+        long_help = "Specify a comma-separated list of hash algorithms to use. Supported algorithms are md5, sha1, sha256 (or sha2-256), sha384 (or sha2-384), sha512 (or sha2-512), sha3-256, sha3-384, sha3-512, and blake3. Example: -a md5,sha256,blake3"
     )]
     pub algorithms: Vec<String>,
 
