@@ -22,11 +22,12 @@ parallelhash [OPTIONS] -a <algorithms> <paths>...
 - `<paths>`: One or more file or directory paths to process
 - `--channel-size <SIZE>`: Size of the channel queue (default: 10)
 - `--chunk-size <SIZE>`: Size of each chunk in bytes (default: 1048576, which is 1 MB)
+- `--no-follow-symlinks`: Do not follow symbolic links when processing directories
 
 Example:
 
 ```bash
-$ parallelhash -a md5,sha256 --channel-size 20 --chunk-size 2097152 file1.txt folder/
+$ parallelhash -a md5,sha256 --channel-size 20 --chunk-size 2097152 --no-follow-symlinks file1.txt folder/
 md5     sha256  path
 d41d8cd98f00b204e9800998ecf8427e    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855    file1.txt
 b1946ac92492d2347c6235b4d2611184    5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03    folder/file2.txt

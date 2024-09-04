@@ -57,30 +57,75 @@ struct FileChunk {
 }
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(
+    author,
+    version,
+    about = "ParallelHash: Efficiently calculate cryptographic hashes of files using multiple algorithms in parallel",
+    long_about = "ParallelHash is a command-line application that calculates cryptographic hashes of files using multiple algorithms in parallel. It can process individual files or entire directories, and supports MD5, SHA1, SHA256, and SHA512 algorithms. The application is designed to optimize both I/O operations and CPU utilization, making it efficient for various file sizes and storage types."
+)]
 struct Args {
-    #[arg(short, long, value_delimiter = ',')]
+    #[arg(
+        short,
+        long,
+        value_delimiter = ',',
+        help = "Comma-separated list of hash algorithms to use (md5, sha1, sha256, sha512)",
+        long_help = "Specify a comma-separated list of hash algorithms to use. Supported algorithms are md5, sha1, sha256, and sha512. Example: -a md5,sha256"
+    )]
     algorithms: Vec<String>,
 
-    #[arg(short, long)]
+    #[arg(
+        short,
+        long,
+        help = "Verify checksums from the specified file instead of computing new hashes",
+        long_help = "Verify checksums from the specified file instead of computing new hashes. The file should contain checksums in the same format as the output of this program."
+    )]
     check: Option<PathBuf>,
 
-    #[arg(required_unless_present = "check")]
+    #[arg(
+        required_unless_present = "check",
+        help = "File or directory paths to process",
+        long_help = "Specify one or more file or directory paths to process. If a directory is specified, all files within it (including subdirectories) will be processed."
+    )]
     paths: Vec<PathBuf>,
 
-    #[arg(short, long, default_value_t = false)]
+    #[arg(
+        short,
+        long,
+        default_value_t = false,
+        help = "Show column headers in the output"
+    )]
     show_headers: bool,
 
-    #[arg(long, default_value_t = false)]
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Continue processing files even if an error occurs",
+        long_help = "Continue processing remaining files even if an error occurs while processing a file. By default, the program stops on the first error."
+    )]
     continue_on_error: bool,
 
-    #[arg(long, default_value_t = true)]
-    follow_symlinks: bool,
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Do not follow symbolic links when processing directories",
+        long_help = "Do not follow symbolic links when processing directories. By default, symbolic links are followed."
+    )]
+    no_follow_symlinks: bool,
 
-    #[arg(long, default_value_t = 10)]
+    #[arg(
+        long,
+        default_value_t = 10,
+        help = "Size of the channel queue for parallel processing",
+        long_help = "Set the size of the channel queue used for parallel processing. A larger value may improve performance but will use more memory. Default is 10."
+    )]
     channel_size: usize,
 
-    #[arg(long, default_value_t = 1024 * 1024)]
+    #[arg(
+        long,
+        default_value_t = 1024 * 1024,
+        help = "Size of each chunk in bytes for file processing (default: 1MB)",
+        long_help = "Set the size of each chunk in bytes for file processing. Larger chunks may improve performance but will use more memory. Default is 1MB (1048576 bytes)."
+    )]
     chunk_size: usize,
 }
 
@@ -120,7 +165,7 @@ fn main() -> Result<()> {
             &algorithms,
             args.show_headers,
             args.continue_on_error,
-            args.follow_symlinks,
+            !args.no_follow_symlinks,
             args.channel_size,
             args.chunk_size,
         )?;
