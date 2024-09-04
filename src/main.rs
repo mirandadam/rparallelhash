@@ -1,17 +1,10 @@
 use anyhow::Result;
 use clap::Parser;
-
-mod checksum_verification;
-mod cli;
-mod file_processing;
-mod hash_algorithms;
-mod utils;
-
-use cli::Args;
+use parallelhash::{checksum_verification, compute_hashes, validate_algorithms, Args};
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let algorithms = utils::validate_algorithms(&args.algorithms)?;
+    let algorithms = validate_algorithms(&args.algorithms)?;
 
     if let Some(check_file) = args.check {
         checksum_verification::verify_checksums(
@@ -22,7 +15,7 @@ fn main() -> Result<()> {
             args.chunk_size,
         )?;
     } else {
-        file_processing::compute_hashes(
+        compute_hashes(
             &args.paths,
             &algorithms,
             args.show_headers,
