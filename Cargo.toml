@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 no-panic = "0.1.30"
 rayon = "1.10.0"
-clap = { version = "4.5.16", features = ["derive"] }
+clap = { version = "4.5.17", features = ["derive"] }
 digest = "0.10.7"
 sha1 = "0.10.6"
 md-5 = "0.10.6"
@@ -17,3 +17,12 @@ hex = "0.4.3"
 anyhow = "1.0.86"
 crossbeam = "0.8.4"
 blake3 = { version = "1.5.4", features = ["rayon"] }
+
+[profile.release]
+# See https://github.com/johnthagen/min-sized-rust for tips to reduce binary size
+opt-level = "s"  # Optimize for size, binary size: 854520
+#opt-level = 3 # Optimize for speed, binary size: (~ +120MB)
+lto = true       # Enable Link Time Optimization (this with codegen-units=1 gives ~ -145MB)
+codegen-units = 1  # Reduce codegen units to improve optimization
+panic = "abort"  # Use abort for panics to reduce binary size (~ -120MB)
+strip = true  # Strip symbols to reduce binary size (~ -130MB)
