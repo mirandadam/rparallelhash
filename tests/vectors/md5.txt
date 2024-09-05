@@ -1,3 +1,0 @@
-900150983cd24fb0d6963f7d28e17f72  abc.bin
-d41d8cd98f00b204e9800998ecf8427e  emptyfile.bin
-e4d909c290d0fb1ca068ffaddf22cbd0  pangram.bin
