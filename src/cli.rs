@@ -72,4 +72,12 @@ pub struct Args {
         long_help = "Set the size of each chunk in bytes for file processing. Larger chunks may improve performance but will use more memory. Default is 1MB (1048576 bytes)."
     )]
     pub chunk_size: usize,
+
+    #[arg(
+        short,
+        long,
+        help = "Output file path for results",
+        long_help = "Specify a file path to write the results. If not provided, results will be written to stdout."
+    )]
+    pub output: Option<PathBuf>,
 }

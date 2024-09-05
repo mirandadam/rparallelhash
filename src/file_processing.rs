@@ -8,6 +8,7 @@ use std::thread;
 use walkdir::WalkDir;
 
 use crate::hash_algorithms::{FileChunk, HashAlgorithm};
+use crate::output::OutputManager;
 use crate::utils::HashError;
 
 pub fn compute_hashes(
@@ -18,9 +19,10 @@ pub fn compute_hashes(
     follow_symlinks: bool,
     channel_size: usize,
     chunk_size: usize,
+    output_manager: &mut OutputManager,
 ) -> Result<()> {
     if show_headers {
-        println!(
+        let header = format!(
             "{}  {}",
             algorithms
                 .iter()
@@ -29,7 +31,11 @@ pub fn compute_hashes(
                 .join("  "),
             "path"
         );
+        output_manager.write_result(&header)?;
     }
+
+    let total_files = paths.iter().map(|p| count_files(p, follow_symlinks)).sum();
+    output_manager.set_total_files(total_files);
 
     for path in paths {
         if let Err(e) = process_path(
@@ -39,6 +45,7 @@ pub fn compute_hashes(
             follow_symlinks,
             channel_size,
             chunk_size,
+            output_manager,
         ) {
             eprintln!("Error processing path {}: {}", path.display(), e);
             if !continue_on_error {
@@ -47,7 +54,23 @@ pub fn compute_hashes(
         }
     }
 
+    output_manager.finish()?;
     Ok(())
+}
+
+fn count_files(path: &Path, follow_symlinks: bool) -> usize {
+    if path.is_file() {
+        1
+    } else if path.is_dir() {
+        WalkDir::new(path)
+            .follow_links(follow_symlinks)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+            .count()
+    } else {
+        0
+    }
 }
 
 fn process_path(
@@ -57,13 +80,15 @@ fn process_path(
     follow_symlinks: bool,
     channel_size: usize,
     chunk_size: usize,
+    output_manager: &mut OutputManager,
 ) -> Result<()> {
     if path.is_symlink() && !follow_symlinks {
-        println!(
+        let result = format!(
             "{}  {} (symlink)",
             vec!["N/A"; algorithms.len()].join("  "),
             path.display()
         );
+        output_manager.write_result(&result)?;
         return Ok(());
     }
 
@@ -73,7 +98,9 @@ fn process_path(
                 Ok(entry) => {
                     let path = entry.path();
                     if path.is_file() {
-                        if let Err(e) = process_file(path, algorithms, channel_size, chunk_size) {
+                        if let Err(e) =
+                            process_file(path, algorithms, channel_size, chunk_size, output_manager)
+                        {
                             eprintln!("Error processing file {}: {}", path.display(), e);
                             if !continue_on_error {
                                 return Err(anyhow!("Failed to process file: {}", path.display()));
@@ -91,7 +118,7 @@ fn process_path(
         }
         Ok(())
     } else {
-        process_file(path, algorithms, channel_size, chunk_size)
+        process_file(path, algorithms, channel_size, chunk_size, output_manager)
     }
 }
 
@@ -100,19 +127,22 @@ fn process_file(
     algorithms: &[HashAlgorithm],
     channel_size: usize,
     chunk_size: usize,
+    output_manager: &mut OutputManager,
 ) -> Result<()> {
-    match compute_file_hashes(path, algorithms, channel_size, chunk_size) {
+    match compute_file_hashes(path, algorithms, channel_size, chunk_size, output_manager) {
         Ok(hashes) => {
-            println!("{}  {}", hashes.join("  "), path.display());
+            let result = format!("{}  {}", hashes.join("  "), path.display());
+            output_manager.write_result(&result)?;
             Ok(())
         }
         Err(HashError::FileNotFound(e)) => {
-            println!(
-                "{}  {} (File not found: {})",
+            let result = format!(
+                "{}  {}  (File not found: {})",
                 vec!["N/A"; algorithms.len()].join("  "),
                 path.display(),
                 e
             );
+            output_manager.write_result(&result)?;
             Ok(())
         }
         Err(HashError::Other(e)) => Err(e),
@@ -124,6 +154,7 @@ pub fn compute_file_hashes(
     algorithms: &[HashAlgorithm],
     channel_size: usize,
     chunk_size: usize,
+    output_manager: &mut OutputManager,
 ) -> Result<Vec<String>, HashError> {
     let file = File::open(path).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
@@ -168,6 +199,8 @@ pub fn compute_file_hashes(
         for sender in &senders {
             sender.send(chunk.clone()).context("Failed to send chunk")?;
         }
+
+        output_manager.update_bytes(bytes_read as u64)?;
 
         if is_last {
             break;

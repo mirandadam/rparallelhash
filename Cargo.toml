@@ -20,7 +20,7 @@ blake3 = { version = "1.5.4", features = ["rayon"] }
 
 [profile.release]
 # See https://github.com/johnthagen/min-sized-rust for tips to reduce binary size
-opt-level = "s"  # Optimize for size, binary size: 854520
+opt-level = "s"  # Optimize for size, binary size: 854520, no speed penalty found so far
 #opt-level = 3 # Optimize for speed, binary size: (~ +120MB)
 lto = true       # Enable Link Time Optimization (this with codegen-units=1 gives ~ -145MB)
 codegen-units = 1  # Reduce codegen units to improve optimization
