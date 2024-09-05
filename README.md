@@ -15,16 +15,27 @@ ParallelHash is a command-line application written in Rust that efficiently calc
 ## Usage
 
 ```bash
-parallelhash [OPTIONS] -a <algorithms> <paths>...
+parallelhash [OPTIONS] [PATHS]...
 ```
 
-- `-a, --algorithms`: Comma-separated list of hash algorithms to use (md5, sha1, sha256, sha384, sha512, sha3-256, sha3-384, sha3-512, blake3)
-- `<paths>`: One or more file or directory paths to process
-- `--channel-size <SIZE>`: Size of the channel queue (default: 10)
-- `--chunk-size <SIZE>`: Size of each chunk in bytes (default: 1048576, which is 1 MB)
-- `--no-follow-symlinks`: Do not follow symbolic links when processing directories
+### Arguments
 
-Example:
+- `[PATHS]...`: Specify one or more file or directory paths to process. If a directory is specified, all files within it (including subdirectories) will be processed.
+
+### Options
+
+- `-a, --algorithms <ALGORITHMS>`: Specify a comma-separated list of hash algorithms to use. Supported algorithms are md5, sha1, sha256 (or sha2-256), sha384 (or sha2-384), sha512 (or sha2-512), sha3-256, sha3-384, sha3-512, and blake3. Example: [`-a md5,sha256,blake3`]
+- `-c, --check <CHECK>`: Verify checksums from the specified file instead of computing new hashes. The file should contain checksums in the same format as the output of this program.
+- `-s, --show-headers`: Show column headers in the output.
+- `--continue-on-error`: Continue processing remaining files even if an error occurs while processing a file. By default, the program stops on the first error.
+- `--no-follow-symlinks`: Do not follow symbolic links when processing directories. By default, symbolic links are followed.
+- `--channel-size <CHANNEL_SIZE>`: Set the size of the channel queue used for parallel processing. A larger value may improve performance but will use more memory. Default is 10.
+- `--chunk-size <CHUNK_SIZE>`: Set the size of each chunk in bytes for file processing. Larger chunks may improve performance but will use more memory. Default is 1MB (1048576 bytes).
+- `-o, --output <OUTPUT>`: Specify a file path to write the results. If not provided, results will be written to stdout.
+- `-h, --help`: Print help (see a summary with '-h').
+- `-V, --version`: Print version.
+
+### Example
 
 ```bash
 $ parallelhash -a md5,sha256,blake3 --channel-size 20 --chunk-size 2097152 --no-follow-symlinks file1.txt folder/
@@ -42,13 +53,7 @@ ParallelHash is designed to efficiently handle files of various sizes, optimizin
 1. Processing files sequentially, one at a time, to minimize the impact of expensive file seeks.
 2. Streaming file content in chunks using a buffered reader, allowing the processing of files larger than available memory.
 3. Calculating hashes for multiple algorithms in parallel for each chunk of data, maximizing CPU utilization.
-4. Using separate threads and bounded channels for each hashing algorithm, allowing for independent processing speeds.
-5. Implementing a backpressure mechanism to naturally balance between I/O and CPU operations.
-6. Providing configurable channel and chunk sizes to fine-tune performance for specific use cases.
-
-This design is particularly beneficial in various situations, such as when working with network filesystems, slow storage devices, or when processing computationally expensive hash algorithms. By reading each file only once and performing hash calculations in parallel, ParallelHash optimizes both I/O operations and CPU utilization.
-
-The configurable channel and chunk sizes allow users to adjust the balance between memory usage and performance. Larger channel sizes can improve throughput by reducing the likelihood of worker threads waiting for data, while larger chunk sizes can reduce the overhead of channel operations at the cost of increased memory usage.
+4. Using separate threads and bounded channels for each hashing algorithm, allowing for efficient parallel processing.
 
 ## Building
 
