@@ -20,7 +20,15 @@ pub fn compute_hashes(
     chunk_size: usize,
 ) -> Result<()> {
     if show_headers {
-        println!("{}  {}", algorithms.len(), "path");
+        println!(
+            "{}  {}",
+            algorithms
+                .iter()
+                .map(|algo| algo.to_string())
+                .collect::<Vec<_>>()
+                .join("  "),
+            "path"
+        );
     }
 
     for path in paths {

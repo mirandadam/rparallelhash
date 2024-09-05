@@ -68,6 +68,20 @@ impl HashAlgorithm {
             }
         }
     }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            HashAlgorithm::Md5(_) => "MD5".to_string(),
+            HashAlgorithm::Sha1(_) => "SHA1".to_string(),
+            HashAlgorithm::Sha256(_) => "SHA2-256".to_string(),
+            HashAlgorithm::Sha384(_) => "SHA2-384".to_string(),
+            HashAlgorithm::Sha512(_) => "SHA2-512".to_string(),
+            HashAlgorithm::Sha3_256(_) => "SHA3-256".to_string(),
+            HashAlgorithm::Sha3_384(_) => "SHA3-384".to_string(),
+            HashAlgorithm::Sha3_512(_) => "SHA3-512".to_string(),
+            HashAlgorithm::Blake3(_) => "BLAKE3".to_string(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
