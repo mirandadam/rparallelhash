@@ -18,12 +18,12 @@ pub fn verify_checksums(
 
     if show_headers {
         println!(
-            "Result\t{}\tPath",
+            "Result  {}  Path",
             algorithms
                 .iter()
                 .map(|_| "Hash")
                 .collect::<Vec<_>>()
-                .join("\t")
+                .join("  ")
         );
     }
 
@@ -37,16 +37,16 @@ pub fn verify_checksums(
                     .all(|(a, b)| a == b);
                 let status = if result { "OK" } else { "FAILED" };
                 println!(
-                    "{}\t{}\t{}",
+                    "{}  {}  {}",
                     status,
-                    computed_hashes.join("\t"),
+                    computed_hashes.join("  "),
                     entry.path.display()
                 );
             }
             Err(HashError::FileNotFound(_)) => {
                 println!(
-                    "FAILED\t{}\t{}",
-                    vec!["N/A"; algorithms.len()].join("\t"),
+                    "FAILED  {}  {}",
+                    vec!["N/A"; algorithms.len()].join("  "),
                     entry.path.display()
                 );
             }

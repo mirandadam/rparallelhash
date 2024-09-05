@@ -28,9 +28,9 @@ Example:
 
 ```bash
 $ parallelhash -a md5,sha256,blake3 --channel-size 20 --chunk-size 2097152 --no-follow-symlinks file1.txt folder/
-md5     sha256  blake3  path
-d41d8cd98f00b204e9800998ecf8427e    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855    af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262    file1.txt
-b1946ac92492d2347c6235b4d2611184    5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03    256c83b297114d201b30179f3f0ef0cace9783622da5974326b436178aeef610    folder/file2.txt
+md5  sha256  blake3  path
+d41d8cd98f00b204e9800998ecf8427e  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262  file1.txt
+b1946ac92492d2347c6235b4d2611184  5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03  256c83b297114d201b30179f3f0ef0cace9783622da5974326b436178aeef610  folder/file2.txt
 ```
 
 Note: SHA256, SHA384, and SHA512 can also be referred to as SHA2-256, SHA2-384, and SHA2-512 respectively.

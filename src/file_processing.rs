@@ -20,7 +20,7 @@ pub fn compute_hashes(
     chunk_size: usize,
 ) -> Result<()> {
     if show_headers {
-        println!("{}\t{}", algorithms.len(), "path");
+        println!("{}  {}", algorithms.len(), "path");
     }
 
     for path in paths {
@@ -52,8 +52,8 @@ fn process_path(
 ) -> Result<()> {
     if path.is_symlink() && !follow_symlinks {
         println!(
-            "{}\t{} (symlink)",
-            vec!["N/A"; algorithms.len()].join("\t"),
+            "{}  {} (symlink)",
+            vec!["N/A"; algorithms.len()].join("  "),
             path.display()
         );
         return Ok(());
@@ -95,13 +95,13 @@ fn process_file(
 ) -> Result<()> {
     match compute_file_hashes(path, algorithms, channel_size, chunk_size) {
         Ok(hashes) => {
-            println!("{}\t{}", hashes.join("\t"), path.display());
+            println!("{}  {}", hashes.join("  "), path.display());
             Ok(())
         }
         Err(HashError::FileNotFound(e)) => {
             println!(
-                "{}\t{} (File not found: {})",
-                vec!["N/A"; algorithms.len()].join("\t"),
+                "{}  {} (File not found: {})",
+                vec!["N/A"; algorithms.len()].join("  "),
                 path.display(),
                 e
             );
