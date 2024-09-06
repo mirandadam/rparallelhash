@@ -7,6 +7,8 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 const FKIB: f64 = (1024 * 1024) as f64;
+const UPDATE_INTERVAL: Duration = Duration::from_millis(200);
+const THROUGHPUT_WINDOW: Duration = Duration::from_secs(1);
 
 pub struct OutputManager {
     writer: Box<dyn Write>,
@@ -31,7 +33,7 @@ impl OutputManager {
             next_report: Instant::now(),
             processed_files: 0,
             processed_bytes: 0,
-            recent_updates: VecDeque::with_capacity(5),
+            recent_updates: VecDeque::new(),
         })
     }
 
@@ -46,17 +48,15 @@ impl OutputManager {
         self.processed_bytes += bytes;
         let now = Instant::now();
 
-        if let Some((last_time, _last_bytes)) = self.recent_updates.back() {
-            if now.duration_since(*last_time) >= Duration::from_millis(200) {
-                self.recent_updates.push_back((now, self.processed_bytes));
-                if self.recent_updates.len() > 5 {
-                    self.recent_updates.pop_front();
-                }
+        self.recent_updates.push_back((now, self.processed_bytes));
+
+        // Remove outdated entries
+        while let Some((time, _)) = self.recent_updates.front() {
+            if now.duration_since(*time) > THROUGHPUT_WINDOW {
+                self.recent_updates.pop_front();
             } else {
-                *self.recent_updates.back_mut().unwrap() = (now, self.processed_bytes);
+                break;
             }
-        } else {
-            self.recent_updates.push_back((now, self.processed_bytes));
         }
 
         self.update_progress()?;
@@ -79,7 +79,8 @@ impl OutputManager {
     }
 
     fn update_progress(&mut self) -> Result<()> {
-        if Instant::now() >= self.next_report {
+        let now = Instant::now();
+        if now >= self.next_report {
             let elapsed = self.start_time.elapsed();
             let avg_speed = self.processed_bytes as f64 / elapsed.as_secs_f64() / FKIB;
             let current_speed = self.calculate_current_throughput();
@@ -91,7 +92,7 @@ impl OutputManager {
                 current_speed
             );
             io::stderr().flush()?;
-            self.next_report += Duration::from_millis(500);
+            self.next_report = now + UPDATE_INTERVAL;
         }
         Ok(())
     }
@@ -101,7 +102,7 @@ impl OutputManager {
         let speed = self.processed_bytes as f64 / elapsed.as_secs_f64() / FKIB;
         let formatted_bytes = format_bytes(self.processed_bytes);
         eprintln!(
-            "\nFinished: {} files processed, {:.2} MB/s, total time: {}, total bytes: {}",
+            "\nFinished: {} files processed, {:.2} MiB/s, total time: {}, total bytes: {}",
             self.processed_files,
             speed,
             format_duration(elapsed),
