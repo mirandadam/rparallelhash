@@ -30,8 +30,6 @@ pub fn verify_checksums(
         output_manager.write_result(&header)?;
     }
 
-    output_manager.set_total_files(entries.len());
-
     for entry in entries {
         match compute_file_hashes(
             &entry.path,

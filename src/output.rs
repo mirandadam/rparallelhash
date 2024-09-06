@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::collections::VecDeque;
 use std::f64;
 use std::fs::File;
 use std::io::{self, Write};
@@ -11,10 +12,9 @@ pub struct OutputManager {
     writer: Box<dyn Write>,
     start_time: Instant,
     next_report: Instant,
-    total_files: usize,
     processed_files: usize,
-    total_bytes: u64,
     processed_bytes: u64,
+    recent_updates: VecDeque<(Instant, u64)>,
 }
 
 impl OutputManager {
@@ -29,19 +29,10 @@ impl OutputManager {
             writer,
             start_time: Instant::now(),
             next_report: Instant::now(),
-            total_files: 0,
             processed_files: 0,
-            total_bytes: 0,
             processed_bytes: 0,
+            recent_updates: VecDeque::with_capacity(5),
         })
-    }
-
-    pub fn set_total_files(&mut self, total_files: usize) {
-        self.total_files = total_files;
-    }
-
-    pub fn set_total_bytes(&mut self, total_bytes: u64) {
-        self.total_bytes = total_bytes;
     }
 
     pub fn write_result(&mut self, result: &str) -> Result<()> {
@@ -53,26 +44,54 @@ impl OutputManager {
 
     pub fn update_bytes(&mut self, bytes: u64) -> Result<()> {
         self.processed_bytes += bytes;
+        let now = Instant::now();
+
+        if let Some((last_time, _last_bytes)) = self.recent_updates.back() {
+            if now.duration_since(*last_time) >= Duration::from_millis(200) {
+                self.recent_updates.push_back((now, self.processed_bytes));
+                if self.recent_updates.len() > 5 {
+                    self.recent_updates.pop_front();
+                }
+            } else {
+                *self.recent_updates.back_mut().unwrap() = (now, self.processed_bytes);
+            }
+        } else {
+            self.recent_updates.push_back((now, self.processed_bytes));
+        }
+
         self.update_progress()?;
         Ok(())
     }
 
-    fn update_progress(&mut self) -> Result<()> {
-        let elapsed = self.start_time.elapsed();
-        let speed = self.processed_bytes as f64 / elapsed.as_secs_f64() / FKIB;
-        let progress = if self.total_files > 0 {
-            self.processed_files as f64 / self.total_files as f64 * 100.0
+    fn calculate_current_throughput(&self) -> f64 {
+        if self.recent_updates.len() < 2 {
+            return 0.0;
+        }
+        let (start_time, start_bytes) = self.recent_updates.front().unwrap();
+        let (end_time, end_bytes) = self.recent_updates.back().unwrap();
+        let duration = end_time.duration_since(*start_time).as_secs_f64();
+        if duration > 0.0 {
+            let bytes_processed = end_bytes - start_bytes;
+            bytes_processed as f64 / duration / FKIB
         } else {
             0.0
-        };
+        }
+    }
 
-        if Instant::now() > self.next_report {
+    fn update_progress(&mut self) -> Result<()> {
+        if Instant::now() >= self.next_report {
+            let elapsed = self.start_time.elapsed();
+            let avg_speed = self.processed_bytes as f64 / elapsed.as_secs_f64() / FKIB;
+            let current_speed = self.calculate_current_throughput();
             eprint!(
-                "\rProgress: {:.2}% ({}/{} files, {:.2} MiB/s)        ",
-                progress, self.processed_files, self.total_files, speed
+                "\rProcessed: {} files, {}, Avg: {:.2} MiB/s, Current: {:.2} MiB/s        ",
+                self.processed_files,
+                format_bytes(self.processed_bytes),
+                avg_speed,
+                current_speed
             );
             io::stderr().flush()?;
-            self.next_report += Duration::from_millis(200);
+            self.next_report += Duration::from_millis(500);
         }
         Ok(())
     }

@@ -34,9 +34,6 @@ pub fn compute_hashes(
         output_manager.write_result(&header)?;
     }
 
-    let total_files = paths.iter().map(|p| count_files(p, follow_symlinks)).sum();
-    output_manager.set_total_files(total_files);
-
     for path in paths {
         if let Err(e) = process_path(
             path,
@@ -56,21 +53,6 @@ pub fn compute_hashes(
 
     output_manager.finish()?;
     Ok(())
-}
-
-fn count_files(path: &Path, follow_symlinks: bool) -> usize {
-    if path.is_file() {
-        1
-    } else if path.is_dir() {
-        WalkDir::new(path)
-            .follow_links(follow_symlinks)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
-            .count()
-    } else {
-        0
-    }
 }
 
 fn process_path(
