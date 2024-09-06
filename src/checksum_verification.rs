@@ -16,14 +16,19 @@ pub fn verify_checksums(
     chunk_size: usize,
     output_manager: &mut OutputManager,
 ) -> Result<()> {
-    let entries = parse_checksum_file(check_file, algorithms)?;
+    let (entries, detected_algorithms) = parse_checksum_file(check_file, algorithms)?;
+    let algorithms = if !algorithms.is_empty() {
+        algorithms
+    } else {
+        &detected_algorithms
+    };
 
     if show_headers {
         let header = format!(
             "Result  {}  Path",
             algorithms
                 .iter()
-                .map(|_| "Hash")
+                .map(|algo| algo.to_string())
                 .collect::<Vec<_>>()
                 .join("  ")
         );
@@ -70,28 +75,94 @@ pub fn verify_checksums(
     Ok(())
 }
 
-fn parse_checksum_file(path: &Path, algorithms: &[HashAlgorithm]) -> Result<Vec<ChecksumEntry>> {
+fn parse_checksum_file(
+    path: &Path,
+    algorithms: &[HashAlgorithm],
+) -> Result<(Vec<ChecksumEntry>, Vec<HashAlgorithm>)> {
     let file = File::open(path).context("Failed to open checksum file")?;
     let reader = BufReader::new(file);
     let mut entries = Vec::new();
+    let mut lines = reader.lines();
+    let mut detected_algorithms = Vec::new();
 
-    for (i, line) in reader.lines().enumerate() {
-        let line = line.context(format!("Failed to read line {} from checksum file", i + 1))?;
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() != algorithms.len() + 1 {
-            return Err(anyhow!("Invalid checksum file format at line {}", i + 1));
+    // Check for header
+    if let Some(Ok(first_line)) = lines.next() {
+        if let Some(header_algorithms) = parse_header(&first_line) {
+            detected_algorithms = header_algorithms;
+        } else {
+            // If it's not a header, parse it as a regular line
+            parse_line(
+                &first_line,
+                algorithms,
+                &detected_algorithms,
+                &mut entries,
+                1,
+            )?;
         }
-
-        entries.push(ChecksumEntry {
-            hashes: parts[..algorithms.len()]
-                .iter()
-                .map(|&s| s.to_string())
-                .collect(),
-            path: PathBuf::from(parts[algorithms.len()]),
-        });
     }
 
-    Ok(entries)
+    let algorithms_to_use = if !algorithms.is_empty() {
+        algorithms
+    } else {
+        &detected_algorithms
+    };
+
+    for (i, line) in lines.enumerate() {
+        let line = line.context(format!("Failed to read line {} from checksum file", i + 2))?;
+        parse_line(
+            &line,
+            algorithms_to_use,
+            &detected_algorithms,
+            &mut entries,
+            i + 2,
+        )?;
+    }
+
+    Ok((entries, detected_algorithms))
+}
+
+fn parse_header(line: &str) -> Option<Vec<HashAlgorithm>> {
+    let parts: Vec<&str> = line.split("  ").collect();
+    if parts.last() == Some(&"path") {
+        let algorithms: Result<Vec<HashAlgorithm>, _> = parts[..parts.len() - 1]
+            .iter()
+            .map(|&s| HashAlgorithm::new(s))
+            .collect();
+        algorithms.ok()
+    } else {
+        None
+    }
+}
+
+fn parse_line(
+    line: &str,
+    algorithms: &[HashAlgorithm],
+    detected_algorithms: &[HashAlgorithm],
+    entries: &mut Vec<ChecksumEntry>,
+    line_number: usize,
+) -> Result<()> {
+    let num_fields = if !algorithms.is_empty() {
+        algorithms.len()
+    } else if !detected_algorithms.is_empty() {
+        detected_algorithms.len()
+    } else {
+        return Err(anyhow!("No algorithms specified or detected"));
+    };
+
+    let parts: Vec<&str> = line.splitn(num_fields + 1, "  ").collect();
+    if parts.len() != num_fields + 1 {
+        return Err(anyhow!(
+            "Invalid checksum file format at line {}",
+            line_number
+        ));
+    }
+
+    entries.push(ChecksumEntry {
+        hashes: parts[..num_fields].iter().map(|&s| s.to_string()).collect(),
+        path: PathBuf::from(parts[num_fields].trim_end_matches(['\r', '\n'])),
+    });
+
+    Ok(())
 }
 
 #[derive(Debug)]

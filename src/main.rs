@@ -11,6 +11,9 @@ fn main() -> Result<()> {
     let mut output_manager = OutputManager::new(args.output.as_deref())?;
 
     if let Some(check_file) = args.check {
+        if !args.algorithms.is_empty() {
+            eprintln!("Warning: Algorithms specified with -a option will take precedence over the header in the checksum file.");
+        }
         checksum_verification::verify_checksums(
             &check_file,
             &algorithms,

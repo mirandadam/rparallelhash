@@ -165,6 +165,7 @@ pub fn compute_file_hashes(
         })
         .collect();
 
+    let mut is_empty = true;
     loop {
         let bytes_read = reader
             .read(&mut buffer)
@@ -172,6 +173,7 @@ pub fn compute_file_hashes(
         if bytes_read == 0 {
             break;
         }
+        is_empty = false;
         let is_last = bytes_read < chunk_size;
         let chunk = FileChunk {
             data: buffer[..bytes_read].to_vec(),
@@ -186,6 +188,19 @@ pub fn compute_file_hashes(
 
         if is_last {
             break;
+        }
+    }
+
+    if is_empty {
+        // Handle empty file
+        let empty_chunk = FileChunk {
+            data: Vec::new(),
+            is_last: true,
+        };
+        for sender in &senders {
+            sender
+                .send(empty_chunk.clone())
+                .context("Failed to send empty chunk")?;
         }
     }
 
